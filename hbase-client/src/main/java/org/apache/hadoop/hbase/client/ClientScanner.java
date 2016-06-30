@@ -588,15 +588,14 @@ public abstract class ClientScanner extends AbstractClientScanner {
     // the caller will receive a result back where the number of cells in the result is less than
     // the batch size even though it may not be the last group of cells for that row.
     if (allowPartials || isBatchSet) {
-      addResultsToList(resultsToAddToCache, resultsFromServer, 0,
-          (null == resultsFromServer ? 0 : resultsFromServer.length));
+      addResultsToList(resultsToAddToCache, resultsFromServer, 0, resultSize);
       return resultsToAddToCache;
     }
 
     // If no results were returned it indicates that either we have the all the partial results
     // necessary to construct the complete result or the server had to send a heartbeat message
     // to the client to keep the client-server connection alive
-    if (resultsFromServer == null || resultsFromServer.length == 0) {
+    if (resultSize == 0) {
       // If this response was an empty heartbeat message, then we have not exhausted the region
       // and thus there may be more partials server side that still need to be added to the partial
       // list before we form the complete Result
@@ -610,12 +609,12 @@ public abstract class ClientScanner extends AbstractClientScanner {
 
     // In every RPC response there should be at most a single partial result. Furthermore, if
     // there is a partial result, it is guaranteed to be in the last position of the array.
-    Result last = resultsFromServer[resultsFromServer.length - 1];
+    Result last = resultsFromServer[resultSize - 1];
     Result partial = last.isPartial() ? last : null;
 
     if (LOG.isTraceEnabled()) {
       StringBuilder sb = new StringBuilder();
-      sb.append("number results from RPC: ").append(resultsFromServer.length).append(",");
+      sb.append("number results from RPC: ").append(resultSize).append(",");
       sb.append("partial != null: ").append(partial != null).append(",");
       sb.append("number of partials so far: ").append(partialResults.size());
       LOG.trace(sb.toString());
@@ -645,9 +644,9 @@ public abstract class ClientScanner extends AbstractClientScanner {
       addToPartialResults(partial);
 
       // Exclude the last result, it's a partial
-      addResultsToList(resultsToAddToCache, resultsFromServer, 0, resultsFromServer.length - 1);
+      addResultsToList(resultsToAddToCache, resultsFromServer, 0, resultSize - 1);
     } else if (!partialResults.isEmpty()) {
-      for (int i = 0; i < resultsFromServer.length; i++) {
+      for (int i = 0; i < resultSize; i++) {
         Result result = resultsFromServer[i];
 
         // This result is from the same row as the partial Results. Add it to the list of partials
@@ -681,7 +680,7 @@ public abstract class ClientScanner extends AbstractClientScanner {
         }
       }
     } else { // partial == null && partialResults.isEmpty() -- business as usual
-      addResultsToList(resultsToAddToCache, resultsFromServer, 0, resultsFromServer.length);
+      addResultsToList(resultsToAddToCache, resultsFromServer, 0, resultSize);
     }
 
     return resultsToAddToCache;
